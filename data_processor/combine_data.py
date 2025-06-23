@@ -9,22 +9,26 @@ def merge_excel_files(root_dir, output_file):
     # 遍历根目录下的所有文件和子目录
     for dirpath, dirnames, filenames in os.walk(root_dir):
         # 查找当前目录下的所有Excel文件
+        if len(dirnames) > 0:
+            continue
+
         for filename in filenames:
             if filename.endswith('.xlsx'):
                 file_path = os.path.join(dirpath, filename)
                 try:
                     # 读取Excel文件
-                    df = pd.read_excel(file_path)
+                    df = pd.read_excel(file_path, usecols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 18], skiprows=1, dtype={0: str}).fillna(0)
+                    df.iloc[:, 0] = 'a' + df.iloc[:, 0]
                     all_data.append(df)
-                    print(f"成功读取: {file_path}")
+                    print(f"\n成功读取: {file_path}")
                 except Exception as e:
-                    print(f"读取失败 {file_path}: {e}")
+                    print(f"\n读取失败 {file_path}: {e}")
 
     # 合并所有数据
     if all_data:
         combined_df = pd.concat(all_data, ignore_index=True)
         # 写入到输出文件
-        combined_df.to_excel(output_file, index=False)
+        combined_df.to_csv(output_file, index=False)
         print(f"已成功合并并写入到 {output_file}")
         return combined_df
     else:
@@ -35,7 +39,7 @@ def merge_excel_files(root_dir, output_file):
 if __name__ == '__main__':
     # 使用示例
     root_directory = '../raw_data'  # 替换为你的目录路径
-    output_excel = './combined_data.xlsx'  # 输出文件路径
+    output_excel = './combined_data.csv'  # 输出文件路径
 
     # 执行合并操作
     combined_data = merge_excel_files(root_directory, output_excel)
