@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import random_split
 
 
 class StockPredictionDataset(Dataset):
@@ -94,16 +96,75 @@ def load_dataset(save_path):
     return dataset
 
 
+def padding_seq(batch, max_length=31):
+    # 分离数据和标签
+    sequences, labels = zip(*batch)
+
+    # 创建掩码和填充后的数据
+    padded_sequences = torch.zeros(len(sequences), 7, max_length)
+    mask = torch.zeros(len(sequences), max_length)
+
+    for i, seq in enumerate(sequences):
+        # 截断到最大长度
+        seq = seq[:, :max_length] if seq.shape[1] > max_length else seq
+
+        # 填充数据
+        padded_sequences[i, :, :seq.shape[1]] = torch.FloatTensor(seq)
+
+        # 设置掩码
+        mask[i, :seq.shape[1]] = 1.0
+
+    # 标签转换
+    labels = torch.FloatTensor(labels)
+
+    return padded_sequences, labels, mask
+
+
+def split_dataset(dataset, batch_size=16, max_length=31,
+                  train_ratio=0.8,
+                  val_ratio=0.1,
+                  test_ratio=0.1):
+    train_size = int(train_ratio * len(dataset))
+    val_size = int(val_ratio * len(dataset))
+    test_size = len(dataset) - train_size - val_size
+    train_dataset, val_dataset, test_dataset = random_split(
+        dataset, [train_size, val_size, test_size]
+    )
+    # 创建数据加载器，添加collate_fn参数并设置固定最大长度
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=lambda x: padding_seq(x, max_length=max_length)
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        collate_fn=lambda x: padding_seq(x, max_length=max_length)
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        collate_fn=lambda x: padding_seq(x, max_length=max_length)
+    )
+
+    return train_loader, val_loader, test_loader
+
+
 if __name__ == '__main__':
-    dataset = StockPredictionDataset('./combined_data.csv', './lottery_label.xlsx')
-    dataset.load_data()
-    print(f'Dataset size: {len(dataset)}.')
-    print(f'First sample: {dataset[0]}.')
+    # dataset = StockPredictionDataset('./combined_data.csv', './lottery_label.xlsx')
+    # dataset.load_data()
+    # print(f'Dataset size: {len(dataset)}.')
+    # print(f'First sample: {dataset[0]}.')
 
     # 保存数据集
-    save_dataset(dataset, './stock_prediction_dataset.pkl')
+    # save_dataset(dataset, './stock_prediction_dataset.pkl')
 
     # 加载数据集
     loaded_dataset = load_dataset('./stock_prediction_dataset.pkl')
     print(f'Loaded dataset size: {len(loaded_dataset)}.')
     print(f'First loaded sample: {loaded_dataset[0]}.')
+    train_dataset, val_dataset, test_dataset = split_dataset(loaded_dataset)
+    magic_number = 42
