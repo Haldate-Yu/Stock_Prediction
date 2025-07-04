@@ -16,6 +16,7 @@ warnings.filterwarnings("ignore")
 def main():
     parser = argparse.ArgumentParser(description="训练时空图卷积网络模型进行多步预测")
 
+    parser.add_argument("--padding_type", type=str, default='timely', help="填充方式")
     parser.add_argument("--batch_size", type=int, default=128, help="批大小")
     parser.add_argument("--max_length", type=int, default=31, help="序列最大长度")
     parser.add_argument("--epochs", type=int, default=300, help="训练轮数")
@@ -35,10 +36,11 @@ def main():
 
     # 数据处理
     print("正在加载和处理数据...")
-    dataset = load_dataset('./data_processor/stock_prediction_dataset.pkl')
+    dataset = load_dataset('./data_processor/stock_prediction_dataset_with_mask.pkl')
     train_dataset, val_dataset, test_dataset = split_dataset(dataset,
                                                              batch_size=args.batch_size,
-                                                             max_length=args.max_length)
+                                                             max_length=args.max_length,
+                                                             use_padding=args.padding_type == 'sequence')
     print("数据加载完成！")
     # 初始化模型
     print("正在初始化模型...")

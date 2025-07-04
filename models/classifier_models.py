@@ -19,8 +19,11 @@ class LSTMClassifier(nn.Module):
         self.threshold = threshold
 
     def forward(self, x, mask=None):
-        x = x.permute(0, 2, 1)  # [B, T, D]
+        if x.size(1) == 7:
+            x = x.permute(0, 2, 1)  # [B, T, D]
 
+        if x.dtype != torch.float32:
+            x = x.float()
         out, _ = self.lstm(x)  # out: [B, T, H]
         # out = out.permute(0, 2, 1)  # [B, H, T]
 

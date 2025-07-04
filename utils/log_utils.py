@@ -43,10 +43,10 @@ def save_results(args,
 
         os.makedirs('./results')
 
-    file_name = f'./results/{args.model}_result.csv'
+    file_name = f'./results/result.csv'
 
     header_list = ['Model', 'Epoch', 'Learning_Rate', 'Weight_Decay',
-                   'Lstm_Seq_Length',
+                   'Lstm_Seq_Length', 'Padding_type',
                    'Acc', 'Auc']
     with open(file_name, 'a+') as file:
         file.seek(0)
@@ -55,9 +55,10 @@ def save_results(args,
             dw = csv.DictWriter(file, delimiter=',', fieldnames=header_list)
             dw.writeheader()
         line = ("{}, {}, {}, {}, "
+                "{}, {}, "
                 "{}, {}\n").format(
             "LSTM", args.epochs, args.lr, args.weight_decay,
-            args.best_fold,
+            31, args.padding_type,
             metrics['accuracy'], metrics['auc']
         )
         file.write(line)

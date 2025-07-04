@@ -64,10 +64,11 @@ class StockPredictionDataset(Dataset):
             # features = grouped_data.iloc[i].drop(['股票代码', '月份', '公司简称', '交易时间']).values.tolist()
             features = single_month_df.drop(columns='交易时间').values.tolist()
             # 归一化
-            features_np = np.array([parse_string(feature) for feature in features])
+            # features_np = np.array([parse_string(feature) for feature in features])
+            features_np = np.array([feature for feature in features])
             feature_max = np.max(features_np, axis=0)
             feature_min = np.min(features_np, axis=0)
-            features_norm = (features_np - feature_min) / (feature_max - feature_min)
+            features_norm = (features_np - feature_min) / (feature_max - feature_min + 1e-10)
             self.features.append(features_norm)
             self.data_masks.append(single_month_mask)
             self.labels.append(label)
@@ -154,6 +155,8 @@ class StockPredictionDataset(Dataset):
         """
         根据索引获取一个样本（特征和标签）。
         """
+        if self.data_masks[idx] is not None:
+            return self.features[idx].astype(np.float32), self.labels[idx].astype(np.float32), np.array(self.data_masks[idx])
         return self.features[idx], self.labels[idx]
 
 
@@ -258,10 +261,10 @@ if __name__ == '__main__':
     print(f'First sample: {dataset[0]}.')
 
     # 保存数据集
-    save_dataset(dataset, './stock_prediction_dataset.pkl')
+    save_dataset(dataset, './stock_prediction_dataset_with_mask.pkl')
 
     # 加载数据集
-    loaded_dataset = load_dataset('./stock_prediction_dataset.pkl')
+    loaded_dataset = load_dataset('./stock_prediction_dataset_with_mask.pkl')
     print(f'Loaded dataset size: {len(loaded_dataset)}.')
     print(f'First loaded sample: {loaded_dataset[0]}.')
     train_dataset, val_dataset, test_dataset = split_dataset(loaded_dataset, use_padding=False)

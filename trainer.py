@@ -11,7 +11,8 @@ from loss_func.masked_bce_with_logits_loss import masked_bce_with_logits_loss
 
 def train_model(model, train_loader, val_loader,
                 epochs=300, patient=10,
-                lr=5e-4, wd=1e-6):
+                lr=5e-4, wd=1e-6,
+                padding_type='sequence'):
     # 记录训练开始时间和模型参数
     start_time = time.time()
 
