@@ -46,7 +46,7 @@ def save_results(args,
     file_name = f'./results/result.csv'
 
     header_list = ['Model', 'Epoch', 'Learning_Rate', 'Weight_Decay',
-                   'Lstm_Seq_Length', 'Padding_type',
+                   'Lstm_Seq_Length', 'Padding_type', 'Sample_Type',
                    'Acc', 'Auc']
     with open(file_name, 'a+') as file:
         file.seek(0)
@@ -55,10 +55,10 @@ def save_results(args,
             dw = csv.DictWriter(file, delimiter=',', fieldnames=header_list)
             dw.writeheader()
         line = ("{}, {}, {}, {}, "
-                "{}, {}, "
+                "{}, {}, {}, "
                 "{}, {}\n").format(
             "LSTM", args.epochs, args.lr, args.weight_decay,
-            31, args.padding_type,
+            31, args.padding_type, args.sample_type,
             metrics['accuracy'], metrics['auc']
         )
         file.write(line)
@@ -69,7 +69,7 @@ def save_results(args,
         print("Creating Results File !!!")
 
         os.makedirs('./pred_results')
-    file_name = f'./pred_results/LSTM_lr{args.lr}_wd{args.weight_decay}_seq{args.lstm_seq_len}_result.npz'
+    file_name = f'./pred_results/LSTM_lr{args.lr}_wd{args.weight_decay}_{args.sample_type}_sample_{args.padding_type}_result.npz'
     np.savez(
         file_name,
         accuracy=metrics['accuracy'],

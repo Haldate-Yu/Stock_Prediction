@@ -50,7 +50,8 @@ class StockPredictionDataset(Dataset):
         label_df = pd.read_excel(self.label_path)
 
         for i in tqdm(range(len(grouped_data))):
-            single_month_df, single_month_mask = self.process_single_month_file(grouped_data.iloc[i])
+            # process with mask
+            # single_month_df, single_month_mask = self.process_single_month_file(grouped_data.iloc[i])
 
             stock_code = grouped_data.iloc[i]['股票代码']
             month = grouped_data.iloc[i]['月份']
@@ -61,22 +62,25 @@ class StockPredictionDataset(Dataset):
                 continue
             else:
                 label = label_value.values[0]
-            # features = grouped_data.iloc[i].drop(['股票代码', '月份', '公司简称', '交易时间']).values.tolist()
-            features = single_month_df.drop(columns='交易时间').values.tolist()
+            features = grouped_data.iloc[i].drop(['股票代码', '月份', '公司简称', '交易时间']).values.tolist()
+            # process with mask
+            # features = single_month_df.drop(columns='交易时间').values.tolist()
             # 归一化
-            # features_np = np.array([parse_string(feature) for feature in features])
-            features_np = np.array([feature for feature in features])
+            features_np = np.array([parse_string(feature) for feature in features])
+            # process with mask
+            # features_np = np.array([feature for feature in features])
             feature_max = np.max(features_np, axis=0)
             feature_min = np.min(features_np, axis=0)
             features_norm = (features_np - feature_min) / (feature_max - feature_min + 1e-10)
             self.features.append(features_norm)
-            self.data_masks.append(single_month_mask)
+            # process with mask
+            # self.data_masks.append(single_month_mask)
             self.labels.append(label)
 
     def process_single_month_file(self, grouped_data_i):
         time_list = grouped_data_i['交易时间'].replace("['", "").replace("']", "").replace("Timestamp(", "").replace(
-                ")", "").split(
-                "', '")
+            ")", "").split(
+            "', '")
         date_list = [pd.to_datetime(i.replace("['", "").replace("']", "")) for i in time_list]
 
         open_price_list = eval(grouped_data_i['日开盘价'])
@@ -155,8 +159,9 @@ class StockPredictionDataset(Dataset):
         """
         根据索引获取一个样本（特征和标签）。
         """
-        if self.data_masks[idx] is not None:
-            return self.features[idx].astype(np.float32), self.labels[idx].astype(np.float32), np.array(self.data_masks[idx])
+        if hasattr(self, 'data_masks') and self.data_masks[idx] is not None:
+            return self.features[idx].astype(np.float32), self.labels[idx].astype(np.float32), np.array(
+                self.data_masks[idx])
         return self.features[idx], self.labels[idx]
 
 
@@ -176,6 +181,66 @@ def load_dataset(save_path):
     with open(save_path, 'rb') as f:
         dataset = pickle.load(f)
     print(f'Dataset loaded from {save_path}.')
+    return dataset
+
+
+def downsample_dataset(dataset, use_padding=True):
+    class_0_indices = [i for i, label in enumerate(dataset.labels) if label == 0]
+    class_1_indices = [i for i, label in enumerate(dataset.labels) if label == 1]
+
+    num_class_1 = len(class_1_indices)
+    selected_class_0_indices = np.random.choice(class_0_indices, num_class_1, replace=False)
+
+    selected_indices = np.concatenate([selected_class_0_indices, class_1_indices])
+    np.random.shuffle(selected_indices)
+
+    new_features = [dataset.features[i] for i in selected_indices]
+    new_labels = [dataset.labels[i] for i in selected_indices]
+    if not use_padding:
+        new_data_masks = [dataset.data_masks[i] for i in selected_indices]
+
+    dataset.features = new_features
+    dataset.labels = new_labels
+    if not use_padding:
+        dataset.data_masks = new_data_masks
+
+    return dataset
+
+
+def upsample_dataset(dataset, use_padding=True):
+    class_0_indices = [i for i, label in enumerate(dataset.labels) if label == 0]
+    class_1_indices = [i for i, label in enumerate(dataset.labels) if label == 1]
+
+    num_class_0 = len(class_0_indices)
+    num_class_1 = len(class_1_indices)
+
+    if num_class_0 > num_class_1:
+        minority_indices = class_1_indices
+        majority_count = num_class_0
+    else:
+        minority_indices = class_0_indices
+        majority_count = num_class_1
+
+    # 复制少数类样本直到数量和多数类相同
+    new_minority_indices = []
+    while len(new_minority_indices) < majority_count:
+        new_minority_indices.extend(minority_indices)
+
+    new_minority_indices = new_minority_indices[:majority_count]
+
+    all_indices = (class_0_indices if minority_indices == class_1_indices else class_1_indices) + new_minority_indices
+    np.random.shuffle(all_indices)
+
+    new_features = [dataset.features[i] for i in all_indices]
+    new_labels = [dataset.labels[i] for i in all_indices]
+    if not use_padding:
+        new_data_masks = [dataset.data_masks[i] for i in all_indices]
+
+    dataset.features = new_features
+    dataset.labels = new_labels
+    if not use_padding:
+        dataset.data_masks = new_data_masks
+
     return dataset
 
 
@@ -207,7 +272,13 @@ def split_dataset(dataset, batch_size=16, max_length=31,
                   train_ratio=0.8,
                   val_ratio=0.1,
                   test_ratio=0.1,
-                  use_padding=True):
+                  use_padding=True,
+                  sample_type='None'):
+    if sample_type == 'down':
+        dataset = downsample_dataset(dataset, use_padding=use_padding)
+    elif sample_type == 'up':
+        dataset = upsample_dataset(dataset, use_padding=use_padding)
+
     train_size = int(train_ratio * len(dataset))
     val_size = int(val_ratio * len(dataset))
     test_size = len(dataset) - train_size - val_size
@@ -261,10 +332,10 @@ if __name__ == '__main__':
     print(f'First sample: {dataset[0]}.')
 
     # 保存数据集
-    save_dataset(dataset, './stock_prediction_dataset_with_mask.pkl')
+    save_dataset(dataset, './stock_prediction_dataset2.pkl')
 
     # 加载数据集
-    loaded_dataset = load_dataset('./stock_prediction_dataset_with_mask.pkl')
+    loaded_dataset = load_dataset('./stock_prediction_dataset2.pkl')
     print(f'Loaded dataset size: {len(loaded_dataset)}.')
     print(f'First loaded sample: {loaded_dataset[0]}.')
     train_dataset, val_dataset, test_dataset = split_dataset(loaded_dataset, use_padding=False)

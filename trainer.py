@@ -12,7 +12,7 @@ from loss_func.masked_bce_with_logits_loss import masked_bce_with_logits_loss
 def train_model(model, train_loader, val_loader,
                 epochs=300, patient=10,
                 lr=5e-4, wd=1e-6,
-                padding_type='sequence'):
+                save_path = 'checkpoint.pt'):
     # 记录训练开始时间和模型参数
     start_time = time.time()
 
@@ -32,7 +32,7 @@ def train_model(model, train_loader, val_loader,
         optimizer, mode='min', factor=0.5, patience=5, verbose=False
     )
     early_stopping = EarlyStopping(
-        patience=patient, verbose=False
+        patience=patient, verbose=False, path=save_path
     )
 
     for epoch in range(epochs):

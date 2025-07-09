@@ -4,7 +4,7 @@ import torch
 class EarlyStopping:
     """早停机制，避免过拟合"""
 
-    def __init__(self, patience=10, verbose=False, delta=0, path='checkpoint.pt'):
+    def __init__(self, patience=10, verbose=False, delta=1e-10, path='checkpoint.pt'):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
