@@ -12,7 +12,7 @@ from loss_func.masked_bce_with_logits_loss import masked_bce_with_logits_loss
 def train_model(model, train_loader, val_loader,
                 epochs=300, patient=10,
                 lr=5e-4, wd=1e-6,
-                save_path = 'checkpoint.pt'):
+                save_path='checkpoint.pt'):
     # 记录训练开始时间和模型参数
     start_time = time.time()
 
@@ -41,7 +41,7 @@ def train_model(model, train_loader, val_loader,
         train_preds = []
         train_targets = []
 
-        for data, target, mask in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} [Train]"):
+        for data, target, mask, stock_code, month in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs} [Train]"):
             data, target, mask = data.to(device), target.to(device), mask.to(device)
 
             optimizer.zero_grad()
@@ -66,7 +66,7 @@ def train_model(model, train_loader, val_loader,
         val_probs = []
         val_labels = []
         with torch.no_grad():
-            for input, target, mask in tqdm(val_loader, desc=f'Epoch {epoch + 1}/{epochs} [Val]'):
+            for input, target, mask, stock_code, month in tqdm(val_loader, desc=f'Epoch {epoch + 1}/{epochs} [Val]'):
                 input, target, mask = input.to(device), target.to(device), mask.to(device)
 
                 output = model(input, mask)
@@ -115,15 +115,19 @@ def evaluate_model(model, test_loader):
     test_preds = []
     test_probs = []
     test_labels = []
+    test_stock_codes = []
+    test_months = []
 
     with torch.no_grad():
-        for input, target, mask in tqdm(test_loader, desc='Evaluating'):
+        for input, target, mask, stock_code, month in tqdm(test_loader, desc='Evaluating'):
             input, target, mask = input.to(device), target.to(device), mask.to(device)
 
             output = model(input, mask)
             test_preds.extend(output['preds'].cpu().numpy())
             test_probs.extend(output['probs'].cpu().numpy())
             test_labels.extend(target.cpu().numpy())
+            test_stock_codes.extend(stock_code)
+            test_months.extend(month)
 
     # 计算测试准确率和AUC
     test_acc = accuracy_score(test_labels, test_preds)
@@ -137,5 +141,7 @@ def evaluate_model(model, test_loader):
         'auc': test_auc,
         'predictions': test_preds,
         'probabilities': test_probs,
-        'true_labels': test_labels
+        'true_labels': test_labels,
+        'stock_codes': test_stock_codes,
+        'months': test_months
     }

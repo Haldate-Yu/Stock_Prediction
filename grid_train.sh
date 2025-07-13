@@ -2,8 +2,8 @@
 
 
 for lr in 1e-2 1e-3 5e-4; do
-  for wd in 0 1e-4 5e-3 5e-4; do
-    for pad_type in sequence timelt; do
+  for wd in 0; do
+    for pad_type in timelt; do
         python main.py \
           --epochs 300 \
           --lr $lr \

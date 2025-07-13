@@ -30,42 +30,51 @@ def main():
     parser.add_argument("--lstm_num_layers", type=int, default=2, help="LSTM层数")
     parser.add_argument("--lstm_dropout", type=float, default=0.5, help="LSTM的dropout率")
 
+    parser.add_argument("--k_fold", type=int, default=10, help="k折交叉验证")
+    parser.add_argument("--fold_idx", type=int, default=0, help="当前折的索引")
+
     parser.add_argument("--checkpoint_file", type=str, default='checkpoint.pt', help="结果保存路径")
 
     args = parser.parse_args()
-    args.checkpoint_file = f'LSTM_lr{args.lr}_wd{args.weight_decay}_{args.sample_type}_sample_{args.padding_type}_model.pt'
 
     # 设置随机种子以确保可重复性
     seed_everything(args.seed)
 
     # 数据处理
     print("正在加载和处理数据...")
-
+    global dataset
     if args.padding_type == 'timely':
-        dataset = load_dataset('./data_processor/stock_prediction_dataset_with_mask.pkl')
+        dataset = load_dataset('./data_processor/stock_prediction_dataset_full.pkl')
     elif args.padding_type =='sequence':
         dataset = load_dataset('./data_processor/stock_prediction_dataset.pkl')
 
-    train_dataset, val_dataset, test_dataset = split_dataset(dataset,
-                                                             batch_size=args.batch_size,
-                                                             max_length=args.max_length,
-                                                             use_padding=args.padding_type == 'sequence',
-                                                             sample_type=args.sample_type)
-    print("数据加载完成！")
-    # 初始化模型
-    print("正在初始化模型...")
-    model = LSTMClassifier(input_dim=7,
-                           hidden_dim=args.lstm_hidden_size,
-                           num_layers=args.lstm_num_layers,
-                           dropout=args.lstm_dropout)
+    for i in range(args.k_fold):
+        print(f"正在划分第{i + 1}折数据...")
+        args.checkpoint_file = f'LSTM_lr{args.lr}_wd{args.weight_decay}_{args.sample_type}_sample_{args.padding_type}_fold{i}_model.pt'
+        args.fold_idx = i
 
-    trained_model = train_model(model, train_dataset, val_dataset,
-                                epochs=args.epochs, patient=args.patience,
-                                lr=args.lr, wd=args.weight_decay,
-                                save_path=args.checkpoint_file)
+        train_dataset, val_dataset, test_dataset = split_dataset(dataset,
+                                                                 batch_size=args.batch_size,
+                                                                 max_length=args.max_length,
+                                                                 use_padding=args.padding_type == 'sequence',
+                                                                 sample_type=args.sample_type,
+                                                                 k_fold=args.k_fold,
+                                                                 fold_idx=i)
+        print("数据加载完成！")
+        # 初始化模型
+        print("正在初始化模型...")
+        model = LSTMClassifier(input_dim=7,
+                               hidden_dim=args.lstm_hidden_size,
+                               num_layers=args.lstm_num_layers,
+                               dropout=args.lstm_dropout)
 
-    results = evaluate_model(trained_model, test_dataset)
-    save_results(args, results)
+        trained_model = train_model(model, train_dataset, val_dataset,
+                                    epochs=args.epochs, patient=args.patience,
+                                    lr=args.lr, wd=args.weight_decay,
+                                    save_path=args.checkpoint_file)
+
+        results = evaluate_model(trained_model, test_dataset)
+        save_results(args, results)
 
 
 if __name__ == '__main__':
